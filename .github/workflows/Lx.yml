@@ -14,26 +14,34 @@ jobs:
           echo "password" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
 
-      - name: Start VNC server
+      - name: Start VNC server + noVNC
         run: |
           export DISPLAY=:1
           vncserver :1 -geometry 1280x720 -depth 24
-          # Run websockify (noVNC bridge)
-          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
 
       - name: Download Cloudflared
         run: |
           wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
           sudo dpkg -i cloudflared-linux-amd64.deb
 
-      - name: Start Cloudflared tunnel
-        run: |
-          cloudflared tunnel --url http://localhost:6080 --no-autoupdate &
-          sleep 5
-
-      - name: Keep job alive
+      - name: Run Cloudflared tunnel (blocking)
         run: |
           echo "✅ LXDE Desktop is running!"
-          echo "➡️ Open the Cloudflare URL printed above to access it."
-          echo "🛑 Stop the workflow manually when done."
-          python3 -c "import time; print('Keeping session alive...'); time.sleep(36000)"
+          echo "➡️ The public URL will appear below (https://*.trycloudflare.com)."
+          echo "🛑 Leave this running and stop the workflow manually when finished."
+          
+          # Keep-alive in background (prints heartbeat every 5 min)
+          nohup python3 -u -c "import time; \
+            import sys; \
+            i=0; \
+            print('⏳ Keep-alive started...'); \
+            sys.stdout.flush(); \
+            while True: \
+                i+=1; \
+                print(f'Heartbeat {i} (still alive)'); \
+                sys.stdout.flush(); \
+                time.sleep(300)" &
+
+          # Run cloudflared in the foreground (keeps job alive)
+          cloudflared tunnel --url http://localhost:6080 --no-autoupdate
