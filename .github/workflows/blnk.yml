@@ -1,0 +1,44 @@
+name: LXDE Desktop via noVNC + Cloudflare
+
+on: workflow_dispatch
+
+jobs:
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install LXDE and noVNC
+        run: |
+          sudo apt update
+          sudo apt install -y lxde-core lxterminal tightvncserver novnc websockify wget
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+      - name: Start VNC server + noVNC
+        run: |
+          export DISPLAY=:1
+          vncserver :1 -geometry 1280x720 -depth 24
+          nohup websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+
+      - name: Download Cloudflared
+        run: |
+          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      - name: Start Cloudflared + Keep Alive
+        run: |
+          echo "✅ LXDE Desktop is starting..."
+          # Start tunnel in background
+          nohup cloudflared tunnel --url http://localhost:6080 --no-autoupdate > tunnel.log 2>&1 &
+
+          sleep 5
+          echo "➡️ Cloudflare URL:"
+          grep -o 'https://.*trycloudflare.com' tunnel.log || true
+
+          echo "🛑 Leave this job running. Stop it manually when finished."
+
+          # Keep-alive loop so job never exits
+          while true; do
+            echo "⏳ Still alive at $(date)"
+            sleep 300
+          done
