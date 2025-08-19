@@ -1,4 +1,4 @@
-name: LXDE Desktop via noVNC
+name: LXDE Desktop via noVNC + Cloudflare
 
 on: workflow_dispatch
 
@@ -30,10 +30,10 @@ jobs:
         run: |
           cloudflared tunnel --url http://localhost:6080 --no-autoupdate &
           sleep 5
-          curl -s https://api.my-ip.io/ip.json || true
 
-      - name: Print Access URL
+      - name: Keep job alive
         run: |
           echo "✅ LXDE Desktop is running!"
-          echo "➡️  Check the job logs above, cloudflared will print a URL like:"
-          echo "    https://random-id.trycloudflare.com"
+          echo "➡️ Open the Cloudflare URL printed above to access it."
+          echo "🛑 Stop the workflow manually when done."
+          python3 -c "import time; print('Keeping session alive...'); time.sleep(36000)"
