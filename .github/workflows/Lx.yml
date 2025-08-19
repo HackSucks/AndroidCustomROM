@@ -1,0 +1,39 @@
+name: LXDE Desktop via noVNC
+
+on: workflow_dispatch
+
+jobs:
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install LXDE and noVNC
+        run: |
+          sudo apt update
+          sudo apt install -y lxde-core lxterminal tightvncserver novnc websockify wget
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+      - name: Start VNC server
+        run: |
+          export DISPLAY=:1
+          vncserver :1 -geometry 1280x720 -depth 24
+          # Run websockify (noVNC bridge)
+          websockify --web=/usr/share/novnc/ 6080 localhost:5901 &
+
+      - name: Download Cloudflared
+        run: |
+          wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      - name: Start Cloudflared tunnel
+        run: |
+          cloudflared tunnel --url http://localhost:6080 --no-autoupdate &
+          sleep 5
+          curl -s https://api.my-ip.io/ip.json || true
+
+      - name: Print Access URL
+        run: |
+          echo "✅ LXDE Desktop is running!"
+          echo "➡️  Check the job logs above, cloudflared will print a URL like:"
+          echo "    https://random-id.trycloudflare.com"
